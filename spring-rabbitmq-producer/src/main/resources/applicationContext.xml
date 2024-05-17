@@ -1,0 +1,39 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd">
+
+    <!-- 加载外部属性文件 -->
+    <!-- property-placeholder只能加载properties文件，不能加载yaml文件 -->
+    <context:property-placeholder location="classpath:application.properties"/>
+
+    <!-- RabbitMQ连接工厂 -->
+    <rabbit:connection-factory id="connectionFactory"
+                               host="${spring.rabbitmq.host}"
+                               port="${spring.rabbitmq.port}"
+                               username="${spring.rabbitmq.username}"
+                               password="${spring.rabbitmq.password}"
+                               virtual-host="${spring.rabbitmq.virtual-host}"/>
+
+    <!-- 声明一个名为topicExchange的交换机，自动创建，类型为topic -->
+    <!-- 交换机类型有四种：direct、fanout、topic、headers -->
+    <rabbit:topic-exchange name="topicExchange" auto-declare="true"/>
+
+    <!-- RabbitMQ模板 -->
+    <rabbit:template id="rabbitTemplate" connection-factory="connectionFactory" exchange="topicExchange"/>
+
+    <!-- 消息生产者 -->
+    <bean id="newsProducer" class="cn.geekyspace.rabbitmq.exchange.NewsProducer"
+          p:rabbitTemplate-ref="rabbitTemplate"/>
+
+    <!-- 所有产生的数据在RabbitMQ管理界面可见 -->
+    <rabbit:admin connection-factory="connectionFactory"/>
+
+</beans>

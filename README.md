@@ -858,13 +858,10 @@ RabbitMQ在投递消息的过程中充当代理人（Broker），生产者将消
 
 ## 12-Spring整合RabbitMQ
 
-1. 新建一个`spring-rabbitmq`的Maven工程
-2. 添加依赖 `spring-boot-starter-amqp`
+有了以上的基础知识，我们可以使用Spring整合RabbitMQ，实现更加便捷的消息传递。
+直接参考源码进行学习。
 
-   ```pom
-   <!-- Spring Boot RabbitMQ -->
-   <dependency>
-     <groupId>org.springframework.boot</groupId>
-     <artifactId>spring-boot-starter-amqp</artifactId>
-   </dependency>
-   ```
+详见：
+
+* `spring-rabbitmq-producer`模块
+* `spring-rabbitmq-consumer`模块

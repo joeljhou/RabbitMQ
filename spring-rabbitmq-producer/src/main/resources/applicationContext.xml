@@ -33,7 +33,7 @@
     <bean id="newsProducer" class="cn.geekyspace.rabbitmq.exchange.NewsProducer"
           p:rabbitTemplate-ref="rabbitTemplate"/>
 
-    <!-- 所有产生的数据在RabbitMQ管理界面可见 -->
-    <rabbit:admin connection-factory="connectionFactory"/>
+    <!-- RabbitAdmin对象用于创建，删除，绑定队列，交换机等 -->
+    <rabbit:admin id="rabbitAdmin" connection-factory="connectionFactory"/>
 
 </beans>

@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: springboot-rabbitmq
+  rabbitmq:
+    # 连接配置
+    host: localhost
+    port: 5672
+    username: zhouyu
+    password: 123456
+    virtual-host: /geekyspace
+    connection-timeout: 1000
+    # 生产者配置：
+    publisher-confirm-type: correlated  # 对于 Spring Boot 2.2+，替代了 publisher-confirms 和 publisher-returns
+    template:
+      mandatory: true
+    # 消费者配置：
+    listener:
+      simple:
+        acknowledge-mode: manual
+        concurrency: 1
+        max-concurrency: 5

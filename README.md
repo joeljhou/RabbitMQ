@@ -345,6 +345,9 @@ public class RabbitConstant {
  * 工作队列模式适用于需要处理大量消息的场景，例如：订单系统中需要发送大量短信通知。
  */
 public class OrderSystem {
+
+    private static final Gson gson = new Gson();
+
     public static void main(String[] args) throws IOException, TimeoutException {
         // 创建连接和通道
         try (Connection connection = RabbitUtils.getConnection();
@@ -863,8 +866,7 @@ RabbitMQ在投递消息的过程中充当代理人（Broker），生产者将消
 
 详见：
 
-* `spring-rabbitmq-producer`模块
-* `spring-rabbitmq-consumer`模块
+* `spring-rabbitmq`模块
 
 ## 13-使用RabbitAdmin管理MQ
 
@@ -873,7 +875,6 @@ RabbitMQ在投递消息的过程中充当代理人（Broker），生产者将消
 **代码示例：**
 
 ```java
-
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration("classpath:applicationContext.xml")
 public class RabbitAdminTest {
@@ -962,3 +963,170 @@ public class RabbitAdminTest {
 ```
 
 期间提了一个[Issues-11268](https://github.com/rabbitmq/rabbitmq-server/discussions/11268)，关于直连交换机路由键为`#`的问题。
+
+## 14-使用SpringBoot整合RabbitMQ
+
+Java开发者最常用的框架之一是SpringBoot，SpringBoot提供了丰富的自动配置功能，可以简化RabbitMQ的配置。
+
+1. 创建一个`springboot-rabbitmq`的SpringBoot项目。
+2. 添加依赖`spring-boot-starter-amqp`。
+3. 编写配置文件`application.yml`。
+
+```yaml
+spring:
+  application:
+    name: springboot-rabbitmq
+  rabbitmq:
+    # 连接配置
+    host: localhost
+    port: 5672
+    username: zhouyu
+    password: 123456
+    virtual-host: /geekyspace
+    connection-timeout: 1000
+    # 生产者配置：
+    publisher-confirm-type: correlated  # 对于 Spring Boot 2.2+，替代了 publisher-confirms 和 publisher-returns
+    template:
+      mandatory: true
+    # 消费者配置：
+    listener:
+      simple:
+        acknowledge-mode: manual
+        concurrency: 1
+        max-concurrency: 5
+```
+
+4.使用管理界面创建交换机`springboot-exchange`，类型选择`topic`，并创建一个队列`springboot-queue`与之绑定。
+
+*
+缺少交换机报错：`reply-code=404, reply-text=NOT_FOUND - no exchange 'springboot-exchange' in vhost '/geekyspace', class-id=60, method-id=40`
+* 缺少绑定的队列报错：` reply-code=312, reply-text=NO_ROUTE`
+
+5.编写生产者`MessageProducer`及员工类`Employee`。
+
+```java
+@Component
+@RequiredArgsConstructor
+public class MessageProducer {
+
+    // 构造函数注入
+    private final RabbitTemplate rabbitTemplate;
+
+    private static final Gson gson = new Gson();
+
+    RabbitTemplate.ConfirmCallback confirmCallback = (correlationData, ack, cause) -> {
+        System.out.println("消息id:" + correlationData);
+        System.out.println("ack:" + ack);
+        if (ack) {
+            System.out.println("消息发送确认成功");
+        } else {
+            System.out.println("消息发送确认失败:" + cause);
+        }
+    };
+
+    RabbitTemplate.ReturnsCallback returnCallback = returnedMessage -> {
+        System.out.println("========发送失败回掉========");
+        System.out.println("退回编码: " + returnedMessage.getReplyCode() + ", 退回描述: " + returnedMessage.getReplyText());
+        System.out.println("交换机: " + returnedMessage.getExchange() + ", 路由键：" + returnedMessage.getRoutingKey());
+        System.out.println("消息主体: " + new String(returnedMessage.getMessage().getBody()));
+        System.out.println("===========================");
+    };
+
+    // 生产者发送消息
+    public void sendMessages(Employee employee) {
+
+        // 消息发送确认，确认消息是否到达broker服务器
+        rabbitTemplate.setConfirmCallback(confirmCallback);
+
+        // 消息发送失败返回到队列中
+        // 必须配置 spring.rabbitmq.template.mandatory=true 才能使用
+        rabbitTemplate.setReturnsCallback(returnCallback);
+
+        // 消息的附加信息，即自定义id
+        final CorrelationData cd = new CorrelationData(employee.getNumber() + "-" + System.currentTimeMillis());
+        rabbitTemplate.convertAndSend("springboot-exchange", "hr.employee", gson.toJson(employee), cd);
+    }
+}
+```
+
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Employee implements Serializable {
+
+    // 员工编号
+    private String number;
+
+    // 员工姓名
+    private String name;
+
+    // 员工年龄
+    private Integer age;
+
+}
+```
+
+6.编写消费者`MessageConsumer`。
+
+```java
+@Component
+public class MessageConsumer {
+
+    private static final Gson gson = new Gson();
+
+    /**
+     * 消费者监听消息，并处理接收到的消息
+     */
+    // @RabbitHandler注解，标识该方法是 RabbitMQ 的消息处理方法
+    @RabbitHandler
+    // @RabbitListener注解，标识该方法是 RabbitMQ 的消息监听器
+    @RabbitListener(bindings = {
+            // 绑定到指定的队列，从指定的交换机接收消息，使用指定的路由键进行绑定。
+            @QueueBinding(
+                    value = @Queue(value = "springboot-queue", declare = "true"),
+                    exchange = @Exchange(value = "springboot-exchange", declare = "true", type = "topic"),
+                    key = "#")
+    })
+    // 可以使用@Payload注解，标识该方法的参数是消息体
+    public void receiveMessages(@Payload String message, Channel channel,
+                                @Headers Map<String, Object> headers) {
+        System.out.println("===========================");
+        Employee employee = gson.fromJson(message, Employee.class);
+        System.out.println("接收到消息：员工编号：" + employee.getNumber()
+                + "，员工姓名：" + employee.getName()
+                + "，员工年龄：" + employee.getAge());
+        try {
+            // 手动ack确认
+            channel.basicAck((Long) headers.get(AmqpHeaders.DELIVERY_TAG), false);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("===========================");
+    }
+
+}
+```
+
+7.编写测试类`SpringbootRabbitmqApplicationTests`，用于测试消息发送。
+
+```java
+@SpringBootTest
+class SpringbootApplicationTests {
+
+    @Autowired
+    private MessageProducer messageProducer;
+
+    @Test
+    void testSendMsg() {
+        messageProducer.sendMessages(new Employee("1001", "张三", 25));
+    }
+
+}
+```
+
+8.启动项目，在控制台查看日志，观察消息和接收情况。
+
+## 15-RabbitMQ集群架构模式
+
+

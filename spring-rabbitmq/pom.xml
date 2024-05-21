@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>cn.geekyspace</groupId>
-    <artifactId>spring-rabbitmq-consumer</artifactId>
+    <artifactId>spring-rabbitmq</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>spring-rabbitmq-consumer</name>
+    <name>spring-rabbitmq</name>
     <url>http://maven.apache.org</url>
 
     <properties>

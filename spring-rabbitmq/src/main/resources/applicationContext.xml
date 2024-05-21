@@ -24,13 +24,27 @@
 
     <!-- 声明一个名为topicExchange的交换机，自动创建，类型为topic -->
     <!-- 交换机类型有四种：direct、fanout、topic、headers -->
-    <rabbit:topic-exchange name="topicExchange" auto-declare="true"/>
+    <rabbit:topic-exchange name="topicExchange" auto-declare="true">
+        <!-- 绑定队列，pattern表示匹配规则 -->
+        <rabbit:bindings>
+            <rabbit:binding queue="topicQueue" pattern="china.*"/>
+            <rabbit:binding queue="topicQueue" pattern="us.*"/>
+        </rabbit:bindings>
+    </rabbit:topic-exchange>
+
+    <!-- 创建队列 -->
+    <rabbit:queue name="topicQueue" auto-declare="true"
+                  durable="true" exclusive="false" auto-delete="false"/>
 
     <!-- RabbitMQ模板 -->
     <rabbit:template id="rabbitTemplate" connection-factory="connectionFactory" exchange="topicExchange"/>
 
     <!-- 消息生产者 -->
     <bean id="newsProducer" class="cn.geekyspace.rabbitmq.exchange.NewsProducer"
+          p:rabbitTemplate-ref="rabbitTemplate"/>
+
+    <!-- 消息消费者 -->
+    <bean id="newsConsumer" class="cn.geekyspace.rabbitmq.consumer.NewsConsumer"
           p:rabbitTemplate-ref="rabbitTemplate"/>
 
     <!-- RabbitAdmin对象用于创建，删除，绑定队列，交换机等 -->

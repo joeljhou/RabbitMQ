@@ -39,7 +39,7 @@ public class PaymentSystem {
             System.out.println("========支付订单被退回========");
             System.out.println("退回编码：" + returnMessage.getReplyCode() + "，退回描述：" + returnMessage.getReplyText());
             System.out.println("交换机：" + returnMessage.getExchange() + "，路由键：" + returnMessage.getRoutingKey());
-            System.out.println("退回主题：" + new String(returnMessage.getBody()));
+            System.out.println("消息主体：" + new String(returnMessage.getBody()));
             System.out.println("===========================");
         });
 

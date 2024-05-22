@@ -1274,3 +1274,97 @@ class SpringbootApplicationTests {
 | 远程模式(Shovel)     | 双活模式（容灾），可实现跨地域节点之间相互复制数据。<br />版本必须统一，网络要求高，配置复杂，早期版本不支持，已经被淘汰了  |
 | **镜像模式(Mirror)** | 每个队列有多个镜像，保证数据100%不丢失，提供高可用性。                                     |
 | 多活模式(Federation) | 实现跨集群消息传递和数据同步。<br />异地数据复制的主流方案，依赖`fedration`插件，配置简单，性能高，支持多种协议。 |
+
+## 16-搭建Mirror镜像集群
+
+> **镜像模式**：每个队列有多个镜像，保证数据100%不丢失，提供高可用性。
+
+**使用Docker-Compose搭建RabbitMQ集群。**
+
+**1.创建docker-compose.yml文件**
+
+```yaml
+# 定义 Docker Compose 文件版本
+version: '3.13.0-beta.1'
+
+# 定义服务
+services:
+
+   # RabbitMQ 节点 1
+   rabbitmq-node1:
+      image: rabbitmq:3.13-management
+      hostname: rabbitmq-node1
+      ports:
+         - "5673:5672"
+         - "15673:15672"
+      environment:
+         RABBITMQ_ERLANG_COOKIE: "secret_cookie" # 集群内节点持有相同的 /var/lib/rabbitmq/.erlang.cookie 文件才允许彼此通信
+         RABBITMQ_DEFAULT_USER: "admin"
+         RABBITMQ_DEFAULT_PASS: "admin"
+         RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
+      volumes:
+         - rabbitmq-node1-data:/var/lib/rabbitmq
+
+   # RabbitMQ 节点 2
+   rabbitmq-node2:
+      image: rabbitmq:3.13-management
+      hostname: rabbitmq-node2
+      ports:
+         - "5674:5672"
+         - "15674:15672"
+      environment:
+         RABBITMQ_ERLANG_COOKIE: "secret_cookie"  # 集群内节点持有相同的 /var/lib/rabbitmq/.erlang.cookie 文件才允许彼此通信
+         RABBITMQ_DEFAULT_USER: "admin"
+         RABBITMQ_DEFAULT_PASS: "admin"
+         RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
+      volumes:
+         - rabbitmq-node2-data:/var/lib/rabbitmq
+
+# 定义数据卷
+volumes:
+   rabbitmq-node1-data:
+   rabbitmq-node2-data:
+```
+
+**2.启动集群**
+
+```shell
+docker-compose up -d
+```
+
+**3.访问管理界面**
+
+* [http://localhost:15673](http://localhost:15673)
+* [http://localhost:15674](http://localhost:15674)
+
+4.**保持一致的Erlang Cookie**
+
+```
+docker-compose exec rabbitmq-node2 bash
+echo "secret_cookie" > /var/lib/rabbitmq/.erlang.cookie
+```
+
+**5.重启节点**
+
+```shell
+docker-compose restart rabbitmq-node2
+```
+
+**6.加入集群**
+
+```shell
+docker-compose exec rabbitmq-node1 bash
+rabbitmqctl stop_app
+rabbitmqctl join_cluster rabbit@rabbitmq-node2
+rabbitmqctl start_app
+```
+
+**7.验证集群状态**
+
+```shell
+rabbitmqctl cluster_status
+```
+
+你可以看到所有节点都显示在集群中，并且状态为 "**Running Nodes**"。这表明所有节点都已成功加入集群。
+
+![Nodes集群](http://img.geekyspace.cn/pictures/2024/202405221718023.png)

@@ -1,0 +1,40 @@
+# 定义 Docker Compose 文件版本
+version: '3.13.0-beta.1'
+
+# 定义服务
+services:
+
+  # RabbitMQ 节点 1
+  rabbitmq-node1:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq-node1
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie"
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
+    volumes:
+      - rabbitmq-node1-data:/var/lib/rabbitmq
+
+  # RabbitMQ 节点 2
+  rabbitmq-node2:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq-node2
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie"
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
+    volumes:
+      - rabbitmq-node2-data:/var/lib/rabbitmq
+
+# 定义数据卷
+volumes:
+  rabbitmq-node1-data:
+  rabbitmq-node2-data:

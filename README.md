@@ -1106,9 +1106,9 @@ public class RabbitAdminTest {
 
 Java开发者最常用的框架之一是SpringBoot，SpringBoot提供了丰富的自动配置功能，可以简化RabbitMQ的配置。
 
-1. 创建一个`springboot-rabbitmq`的SpringBoot项目。
-2. 添加依赖`spring-boot-starter-amqp`。
-3. 编写配置文件`application.yml`。
+1.创建一个`springboot-rabbitmq`的SpringBoot项目。
+2.添加依赖`spring-boot-starter-amqp`。
+3.编写配置文件`application.yml`。
 
 ```yaml
 spring:
@@ -1136,9 +1136,7 @@ spring:
 
 4.使用管理界面创建交换机`springboot-exchange`，类型选择`topic`，并创建一个队列`springboot-queue`与之绑定。
 
-*
-缺少交换机报错：`reply-code=404, reply-text=NOT_FOUND - no exchange 'springboot-exchange' in vhost '/geekyspace', class-id=60, method-id=40`
-
+* 缺少交换机报错：`reply-code=404, reply-text=NOT_FOUND - no exchange 'springboot-exchange' in vhost '/geekyspace', class-id=60, method-id=40`
 * 缺少绑定的队列报错：` reply-code=312, reply-text=NO_ROUTE`
 
 5.编写生产者`MessageProducer`及员工类`Employee`。
@@ -1264,7 +1262,7 @@ class SpringbootApplicationTests {
 }
 ```
 
-8. 启动项目，在控制台查看日志，观察消息和接收情况。
+8.启动项目，在控制台查看日志，观察消息和接收情况。
 
 ## 15-RabbitMQ集群架构模式
 

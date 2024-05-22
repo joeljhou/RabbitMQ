@@ -401,7 +401,6 @@ public class SMSService1 {
 ```
 
 ```java
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -862,11 +861,150 @@ RabbitMQ在投递消息的过程中充当代理人（Broker），生产者将消
 ## 12-Spring整合RabbitMQ
 
 有了以上的基础知识，我们可以使用Spring整合RabbitMQ，实现更加便捷的消息传递。
-直接参考源码进行学习。
 
-详见：
+1.创建一个`spring-rabbitmq`的Maven项目。
 
-* `spring-rabbitmq`模块
+2.添加依赖`spring-rabbit`。
+
+3.编写配置文件`applicationContext.xml`，使用`application.properties`进行配置。
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd">
+
+    <!-- 加载外部属性文件 -->
+    <!-- property-placeholder只能加载properties文件，不能加载yaml文件 -->
+    <context:property-placeholder location="classpath:application.properties"/>
+
+    <!-- RabbitMQ连接工厂 -->
+    <rabbit:connection-factory id="connectionFactory"
+                               host="${spring.rabbitmq.host}"
+                               port="${spring.rabbitmq.port}"
+                               username="${spring.rabbitmq.username}"
+                               password="${spring.rabbitmq.password}"
+                               virtual-host="${spring.rabbitmq.virtual-host}"/>
+
+    <!-- 声明一个名为topicExchange的交换机，自动创建，类型为topic -->
+    <!-- 交换机类型有四种：direct、fanout、topic、headers -->
+    <rabbit:topic-exchange name="topicExchange" auto-declare="true">
+        <!-- 绑定队列，pattern表示匹配规则 -->
+        <rabbit:bindings>
+            <rabbit:binding queue="topicQueue" pattern="china.*"/>
+            <rabbit:binding queue="topicQueue" pattern="us.*"/>
+        </rabbit:bindings>
+    </rabbit:topic-exchange>
+
+    <!-- 创建队列 -->
+    <rabbit:queue name="topicQueue" auto-declare="true"
+                  durable="true" exclusive="false" auto-delete="false"/>
+
+    <!-- RabbitMQ模板 -->
+    <rabbit:template id="rabbitTemplate" connection-factory="connectionFactory" exchange="topicExchange"/>
+
+    <!-- 消息生产者 -->
+    <bean id="newsProducer" class="cn.geekyspace.rabbitmq.exchange.NewsProducer"
+          p:rabbitTemplate-ref="rabbitTemplate"/>
+
+    <!-- 消息消费者 -->
+    <bean id="newsConsumer" class="cn.geekyspace.rabbitmq.consumer.NewsConsumer"
+          p:rabbitTemplate-ref="rabbitTemplate"/>
+
+    <!-- RabbitAdmin对象用于创建，删除，绑定队列，交换机等 -->
+    <rabbit:admin id="rabbitAdmin" connection-factory="connectionFactory"/>
+
+</beans>
+```
+
+```properties
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=zhouyu
+spring.rabbitmq.password=123456
+spring.rabbitmq.virtual-host=/geekyspace
+```
+
+4.创建`NewsProducer`发布者，发送新闻消息。
+
+```java
+/**
+ * 新闻生产者，生产者针对交换机发送消息
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class NewsProducer {
+
+    private RabbitTemplate rabbitTemplate;
+    private static final Gson gson = new Gson();
+
+    // 发布新闻
+    public void sendNews(String routingKey, News news) {
+        rabbitTemplate.convertAndSend(routingKey, gson.toJson(news));
+        System.out.println("新闻发送成功，标题: " + news.getTitle());
+    }
+
+    public static void main(String[] args) {
+        // 初始化IOC容器
+        ApplicationContext ctx = new ClassPathXmlApplicationContext("classpath:applicationContext.xml");
+        NewsProducer np = (NewsProducer) ctx.getBean("newsProducer");
+
+        // 发布新闻
+        np.sendNews("us.20240513", new News("新华社", "GPT-4o简介", "GPT-4o立即试用", new Date()));
+        np.sendNews("china.20240516", new News("36氪", "Kimi.ai", "帮你看更大的世界", new Date()));
+    }
+
+}
+```
+
+5.创建`NewsConsumer`消费者，接收新闻消息。
+
+```java
+/**
+ * 新闻消费者，消费者从队列中接收消息
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class NewsConsumer implements MessageListener {
+
+    private RabbitTemplate rabbitTemplate;
+    private static final Gson gson = new Gson();
+
+    @Override
+    public void onMessage(Message message) {
+        // 处理接收到的消息
+        final News news = gson.fromJson(new String(message.getBody()), News.class);
+        System.out.printf("接收到最新新闻: 标题-%s 内容-%s%n", news.getTitle(), news.getContent());
+    }
+
+    public static void main(String[] args) {
+        //初始化IOC容器
+        ApplicationContext ctx = new ClassPathXmlApplicationContext("classpath:applicationContext.xml");
+        RabbitTemplate rabbitTemplate = ctx.getBean(RabbitTemplate.class);
+
+        // 创建消费者
+        NewsConsumer newsConsumer = new NewsConsumer();
+
+        // 设置消息监听容器
+        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
+        container.setConnectionFactory(rabbitTemplate.getConnectionFactory());
+        container.setQueueNames("topicQueue"); // 设置要监听的队列名
+        container.setMessageListener(newsConsumer);
+
+        // 启动监听
+        container.start();
+    }
+}
+```
 
 ## 13-使用RabbitAdmin管理MQ
 
@@ -1000,6 +1138,7 @@ spring:
 
 *
 缺少交换机报错：`reply-code=404, reply-text=NOT_FOUND - no exchange 'springboot-exchange' in vhost '/geekyspace', class-id=60, method-id=40`
+
 * 缺少绑定的队列报错：` reply-code=312, reply-text=NO_ROUTE`
 
 5.编写生产者`MessageProducer`及员工类`Employee`。
@@ -1125,8 +1264,7 @@ class SpringbootApplicationTests {
 }
 ```
 
-8.启动项目，在控制台查看日志，观察消息和接收情况。
+8. 启动项目，在控制台查看日志，观察消息和接收情况。
 
 ## 15-RabbitMQ集群架构模式
-
 

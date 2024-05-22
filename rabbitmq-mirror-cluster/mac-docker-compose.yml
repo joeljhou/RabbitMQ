@@ -16,6 +16,8 @@ services:
       RABBITMQ_DEFAULT_USER: "admin"
       RABBITMQ_DEFAULT_PASS: "admin"
       RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
+    networks:
+      - rabbitmq_network
     volumes:
       - rabbitmq-node1-data:/var/lib/rabbitmq
 
@@ -31,6 +33,8 @@ services:
       RABBITMQ_DEFAULT_USER: "admin"
       RABBITMQ_DEFAULT_PASS: "admin"
       RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
+    networks:
+      - rabbitmq_network
     volumes:
       - rabbitmq-node2-data:/var/lib/rabbitmq
 
@@ -38,3 +42,8 @@ services:
 volumes:
   rabbitmq-node1-data:
   rabbitmq-node2-data:
+
+# 定义网络
+networks:
+  rabbitmq_network:
+    driver: bridge

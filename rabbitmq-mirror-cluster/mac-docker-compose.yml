@@ -11,6 +11,7 @@ services:
     ports:
       - "5673:5672"
       - "15673:15672"
+      - "4369:4369"
     environment:
       RABBITMQ_ERLANG_COOKIE: "XMEOWEQZMLEMNDQGNXBI"
       RABBITMQ_DEFAULT_USER: "admin"
@@ -28,6 +29,7 @@ services:
     ports:
       - "5674:5672"
       - "15674:15672"
+      - "4369:4369"
     environment:
       RABBITMQ_ERLANG_COOKIE: "XMEOWEQZMLEMNDQGNXBI"
       RABBITMQ_DEFAULT_USER: "admin"

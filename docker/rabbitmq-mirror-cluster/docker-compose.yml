@@ -18,6 +18,8 @@ services:
       RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
     volumes:
       - rabbitmq-node1-data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_network
 
   # RabbitMQ 节点 2
   rabbitmq-node2:
@@ -33,8 +35,15 @@ services:
       RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
     volumes:
       - rabbitmq-node2-data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_network
 
 # 定义数据卷
 volumes:
   rabbitmq-node1-data:
   rabbitmq-node2-data:
+
+# 定义网络
+networks:
+  rabbitmq_network:
+    driver: bridge

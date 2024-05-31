@@ -49,6 +49,7 @@
 docker run -it --name rabbitmq \
   -p 5672:5672 \
   -p 15672:15672 \
+  -v rabbitmq_3.13_volume:/var/lib/rabbitmq \
   rabbitmq:3.13-management
 ```
 
@@ -401,6 +402,7 @@ public class SMSService1 {
 ```
 
 ```java
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -869,6 +871,7 @@ RabbitMQ在投递消息的过程中充当代理人（Broker），生产者将消
 3.编写配置文件`applicationContext.xml`，使用`application.properties`进行配置。
 
 ```xml
+
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns:p="http://www.springframework.org/schema/p"
@@ -1013,6 +1016,7 @@ public class NewsConsumer implements MessageListener {
 **代码示例：**
 
 ```java
+
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration("classpath:applicationContext.xml")
 public class RabbitAdminTest {
@@ -1136,12 +1140,14 @@ spring:
 
 4.使用管理界面创建交换机`springboot-exchange`，类型选择`topic`，并创建一个队列`springboot-queue`与之绑定。
 
-* 缺少交换机报错：`reply-code=404, reply-text=NOT_FOUND - no exchange 'springboot-exchange' in vhost '/geekyspace', class-id=60, method-id=40`
+*
+缺少交换机报错：`reply-code=404, reply-text=NOT_FOUND - no exchange 'springboot-exchange' in vhost '/geekyspace', class-id=60, method-id=40`
 * 缺少绑定的队列报错：` reply-code=312, reply-text=NO_ROUTE`
 
 5.编写生产者`MessageProducer`及员工类`Employee`。
 
 ```java
+
 @Component
 @RequiredArgsConstructor
 public class MessageProducer {
@@ -1187,6 +1193,7 @@ public class MessageProducer {
 ```
 
 ```java
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -1207,6 +1214,7 @@ public class Employee implements Serializable {
 6.编写消费者`MessageConsumer`。
 
 ```java
+
 @Component
 public class MessageConsumer {
 
@@ -1248,6 +1256,7 @@ public class MessageConsumer {
 7.编写测试类`SpringbootRabbitmqApplicationTests`，用于测试消息发送。
 
 ```java
+
 @SpringBootTest
 class SpringbootApplicationTests {
 
@@ -1290,40 +1299,40 @@ version: '3.13.0-beta.1'
 # 定义服务
 services:
 
-   # RabbitMQ 节点 1
-   rabbitmq-node1:
-      image: rabbitmq:3.13-management
-      hostname: rabbitmq-node1
-      ports:
-         - "5673:5672"
-         - "15673:15672"
-      environment:
-         RABBITMQ_ERLANG_COOKIE: "secret_cookie" # 集群内节点持有相同的 /var/lib/rabbitmq/.erlang.cookie 文件才允许彼此通信
-         RABBITMQ_DEFAULT_USER: "admin"
-         RABBITMQ_DEFAULT_PASS: "admin"
-         RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
-      volumes:
-         - rabbitmq-node1-data:/var/lib/rabbitmq
+  # RabbitMQ 节点 1
+  rabbitmq-node1:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq-node1
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie" # 集群内节点持有相同的 /var/lib/rabbitmq/.erlang.cookie 文件才允许彼此通信
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
+    volumes:
+      - rabbitmq-node1-data:/var/lib/rabbitmq
 
-   # RabbitMQ 节点 2
-   rabbitmq-node2:
-      image: rabbitmq:3.13-management
-      hostname: rabbitmq-node2
-      ports:
-         - "5674:5672"
-         - "15674:15672"
-      environment:
-         RABBITMQ_ERLANG_COOKIE: "secret_cookie"  # 集群内节点持有相同的 /var/lib/rabbitmq/.erlang.cookie 文件才允许彼此通信
-         RABBITMQ_DEFAULT_USER: "admin"
-         RABBITMQ_DEFAULT_PASS: "admin"
-         RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
-      volumes:
-         - rabbitmq-node2-data:/var/lib/rabbitmq
+  # RabbitMQ 节点 2
+  rabbitmq-node2:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq-node2
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie"  # 集群内节点持有相同的 /var/lib/rabbitmq/.erlang.cookie 文件才允许彼此通信
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
+    volumes:
+      - rabbitmq-node2-data:/var/lib/rabbitmq
 
 # 定义数据卷
 volumes:
-   rabbitmq-node1-data:
-   rabbitmq-node2-data:
+  rabbitmq-node1-data:
+  rabbitmq-node2-data:
 ```
 
 **2.启动集群**
@@ -1368,3 +1377,19 @@ rabbitmqctl cluster_status
 你可以看到所有节点都显示在集群中，并且状态为 "**Running Nodes**"。这表明所有节点都已成功加入集群。
 
 ![Nodes集群](http://img.geekyspace.cn/pictures/2024/202405221718023.png)
+
+## 17-Haproxy配置MQ集群负载均衡
+
+**镜像模式遇到的问题**
+
+* 问题描述： 在 RabbitMQ 集群的镜像模式中，Java 客户端只能直连到一个节点，无法实现负载均衡。
+* 影响： 这可能导致单个节点的负载过重，而其他节点负载较轻或处于空闲状态，无法充分利用集群的资源。
+
+**解决方案：使用HAProxy代理服务器**
+
+* HAProxy概述： HAProxy是一个开源的软件负载均衡器，支持TCP（第4层）和HTTP协议（第7层）。
+* 在RabbitMQ集群中的角色： HAProxy用作Tcp负载均衡器（LB-LoadBalance）与故障发现。
+
+**配置HAProxy与MQ集群**
+
+[官网](http://www.haproxy.org/) ｜ [配置手册](https://www.haproxy.org/download/3.0/doc/configuration.txt) ｜ [验证配置](https://www.baeldung.com/linux/haproxy-config-files)

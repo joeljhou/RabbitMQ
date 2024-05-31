@@ -7,38 +7,49 @@ services:
   # RabbitMQ 节点 1
   rabbitmq-node1:
     image: rabbitmq:3.13-management
-    hostname: joeljhoudeMacBook-Pro.local
+    hostname: rabbitmq-node1
     ports:
       - "5673:5672"
       - "15673:15672"
-      - "4369:4369"
     environment:
       RABBITMQ_ERLANG_COOKIE: "secret_cookie"
       RABBITMQ_DEFAULT_USER: "admin"
       RABBITMQ_DEFAULT_PASS: "admin"
-      RABBITMQ_NODENAME: "rabbit@joeljhoudeMacBook-Pro.local"
-    networks:
-      - rabbitmq_network
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
     volumes:
       - rabbitmq-node1-data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_network
 
   # RabbitMQ 节点 2
   rabbitmq-node2:
     image: rabbitmq:3.13-management
-    hostname: BLUEAdeMBP
+    hostname: rabbitmq-node2
     ports:
       - "5674:5672"
       - "15674:15672"
-      - "4369:4369"
     environment:
       RABBITMQ_ERLANG_COOKIE: "secret_cookie"
       RABBITMQ_DEFAULT_USER: "admin"
       RABBITMQ_DEFAULT_PASS: "admin"
-      RABBITMQ_NODENAME: "rabbit@BLUEAdeMBP"
-    networks:
-      - rabbitmq_network
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
     volumes:
       - rabbitmq-node2-data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_network
+
+  # HAProxy 负载均衡器
+  haproxy:
+    image: haproxy:3.0-dev12-bookworm
+    ports:
+      - "5675:5675"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    networks:
+      - rabbitmq_network
+    depends_on:
+      - rabbitmq-node1
+      - rabbitmq-node2
 
 # 定义数据卷
 volumes:

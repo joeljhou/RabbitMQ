@@ -1,4 +1,4 @@
-package cn.geekyspace.rabbitmq;
+package cn.geekyspace.rabbitmq.hellowprld;
 
 import cn.geekyspace.rabbitmq.utils.RabbitConstant;
 import cn.geekyspace.rabbitmq.utils.RabbitUtils;

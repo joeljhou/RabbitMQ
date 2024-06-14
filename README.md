@@ -143,9 +143,8 @@ docker exec -it rabbitmq bash
 
 **AMQP**
 
-**AMQP**（Advanced Message Queuing
-Protocol）是一种网络协议，用于在分布式系统中进行消息传递。它被设计用来支持高性能、可靠性和可扩展性的消息传递系统，常用于消息队列中间件（如
-RabbitMQ）与应用程序之间的通信。
+**AMQP**（Advanced Message Queuing Protocol）是一种网络协议，用于在分布式系统中进行消息传递。
+它被设计用来支持高性能、可靠性和可扩展性的消息传递系统，常用于消息队列中间件（如 RabbitMQ）与应用程序之间的通信。
 
 **基本概念**
 ![Hello World！](http://img.geekyspace.cn/pictures/2024/202405111147828.png)
@@ -159,7 +158,6 @@ RabbitMQ）与应用程序之间的通信。
 **Java创建Maven项目使用RabbitMQ**
 
 1. 新建一个`rabbitmq-quickstart`的Maven工程
-
 2. 添加依赖 `amqp-client`
 
    ```pom
@@ -1398,7 +1396,7 @@ rabbitmqctl cluster_status
 
 ```yml
 # 定义 Docker Compose 文件版本
-version: '3.13.0-beta.1'
+version: '3.13.0-beta.2'
 
 # 定义服务
 services:
@@ -1536,4 +1534,11 @@ listen stats
    * 使用用户名 `admin` 和密码 `admin` 登录查看HAProxy状态和节点健康状况
 
 ![访问测试](https://img.geekyspace.cn/pictures/2024/image-20240614213856305.png)
+
+## 18-客户端访问MQ集群
+
+直接参考使用[点对点`helloworld`模式](#4-点对点mq通信)的代码
+
+* `Host` 连接地址改为HaProxy服务地址
+* `Prot` 改为HaProxy服务端口
 

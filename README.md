@@ -1350,7 +1350,7 @@ docker-compose up -d
 
 ```
 docker-compose exec rabbitmq-node2 bash
-echo "secret_cookie" > /var/lib/rabbitmq/.erlang.cookie
+echo "DAOMNSRTDZIIJEAGXCSH" > /var/lib/rabbitmq/.erlang.cookie
 ```
 
 **5.重启节点**
@@ -1392,4 +1392,148 @@ rabbitmqctl cluster_status
 
 **配置HAProxy与MQ集群**
 
-[官网](http://www.haproxy.org/) ｜ [配置手册](https://www.haproxy.org/download/3.0/doc/configuration.txt) ｜ [验证配置](https://www.baeldung.com/linux/haproxy-config-files)
+[官网](http://www.haproxy.org/) ｜ [文档](https://docs.haproxy.org/) ｜ [验证配置](https://www.baeldung.com/linux/haproxy-config-files)
+
+**使用Docker-Compose配置HAProxy**
+
+```yml
+# 定义 Docker Compose 文件版本
+version: '3.13.0-beta.1'
+
+# 定义服务
+services:
+
+  # RabbitMQ 节点 1
+  rabbitmq-node1:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq-node1
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie"
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node1"
+    volumes:
+      - rabbitmq-node1-data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_network
+
+  # RabbitMQ 节点 2
+  rabbitmq-node2:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq-node2
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "secret_cookie"
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-node2"
+    volumes:
+      - rabbitmq-node2-data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_network
+
+  # HAProxy 负载均衡器
+  haproxy:
+    image: haproxy:3.0-dev12-bookworm
+    ports:
+      - "5672:5672"
+      - "1080:1080"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - rabbitmq_network
+    depends_on:
+      - rabbitmq-node1
+      - rabbitmq-node2
+
+# 定义数据卷
+volumes:
+  rabbitmq-node1-data:
+  rabbitmq-node2-data:
+
+# 定义网络
+networks:
+  rabbitmq_network:
+    driver: bridge
+```
+
+创建名为 `haproxy.cfg` 的文件，并添加以下内容：
+
+```shell
+#---------------------------------------------------------------------
+# 全局设置
+#---------------------------------------------------------------------
+global
+    default-path config
+    log stderr local0 info
+    maxconn 4000
+    user haproxy
+    group haproxy
+    # 以守护进程方式运行
+    daemon
+
+#---------------------------------------------------------------------
+# 默认设置
+#---------------------------------------------------------------------
+defaults
+    log global
+    maxconn 3000
+    mode tcp
+    option tcplog
+    option dontlognull
+    # 重试次数
+    retries 3
+    # 连接超时设置
+    timeout connect 10s
+    timeout client 1m
+    timeout server 1m
+
+#---------------------------------------------------------------------
+# RabbitMQ 集群监听
+#---------------------------------------------------------------------
+listen rabbitmq_cluster
+    bind 0.0.0.0:5672
+    mode tcp
+    option tcplog
+    option dontlognull
+    # 负载均衡算法：轮询
+    balance roundrobin
+    # 连接超时设置
+    timeout connect 1s
+    timeout client 10s
+    timeout server 10s
+    # 定义 RabbitMQ 节点，并配置健康检查参数，每 5 秒检查一次，连续 2 次成功后认为节点健康，连续 3 次失败后认为节点不健康
+    server rabbitmq-node1 rabbitmq-node1:5672 check inter 5s rise 2 fall 3
+    server rabbitmq-node2 rabbitmq-node2:5672 check inter 5s rise 2 fall 3
+
+#---------------------------------------------------------------------
+# HAProxy 监控接口
+#---------------------------------------------------------------------
+listen stats
+    bind 0.0.0.0:1080
+    mode http
+    # 启用监控功能
+    stats enable
+    # 监控页面 uri，可以通过 http://ip:1080/haproxy?stats 访问，用户名 admin，密码 admin
+    stats uri /haproxy?stats
+    stats refresh 30s
+    stats auth admin:admin
+```
+
+**验证与测试**
+
+1. 启动集群`docker-compose up -d`
+2. 访问RabbitMQ管理界面
+   * 在浏览器中访问：[http://localhost:15673](http://localhost:15673) 和 [http://localhost:15674](http://localhost:15674)
+   * 使用默认用户名和密码 `admin`/`admin` 登录
+3. 检查HAProxy监控界面
+   * 在浏览器中访问：[http://localhost:1080/haproxy?stats](http://localhost:1080/haproxy?stats)
+   * 使用用户名 `admin` 和密码 `admin` 登录查看HAProxy状态和节点健康状况
+
+![访问测试](https://img.geekyspace.cn/pictures/2024/image-20240614213856305.png)
+

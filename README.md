@@ -1535,6 +1535,9 @@ listen stats
 
 ![访问测试](https://img.geekyspace.cn/pictures/2024/image-20240614213856305.png)
 
+> HaProxy 挂掉的情况下，RabbitMQ 集群仍然可以正常工作，但是无法实现负载均衡。
+> 需要保证 HaProxy 的高可用性，可以使用 Keepalived + HaProxy 实现。
+
 ## 18-客户端访问MQ集群
 
 直接参考使用[点对点`helloworld`模式](#4-点对点mq通信)的代码
@@ -1542,3 +1545,36 @@ listen stats
 * `Host` 连接地址改为HaProxy服务地址
 * `Prot` 改为HaProxy服务端口
 
+## 19-RabbitMQ如何实现可靠性投递
+
+在RabbitMQ为代表的消息中间件中，哪些场景可能会导致消息丢失？如何应对？
+
+**消息投递的三阶段**
+
+* 生产阶段、存储阶段、消费阶段
+
+![消息投递的三阶段](https://img.geekyspace.cn/pictures/2024/image-20240615234228537.png)
+
+**消息确认应答机制**
+
+RabbitMQ在消息投递过程中，充当代理人（Broker）的角色，为了确保消息的可靠性传递，
+RabbitMQ提供了生产阶段的**Confirm**和**Return**机制，以及消费者端的手动ack确认。
+
+![Confirm & Return](https://img.geekyspace.cn/pictures/2024/image-20240615200122236.png)
+
+**分析不同阶段要采取的措施。**
+
+| 阶段     | 目标                               | 措施                                                                           |
+|--------|----------------------------------|------------------------------------------------------------------------------|
+| **发送** | 确保消息可靠发送到Broker                  | - 多次重发机制，直到Broker ack确认接收<br> - 过程中Broker会自动去重<br> - 超时Producer产生异常，应用进行捕获提示 |
+| **存储** | 确保消息在Broker端安全存储                 | - Broker先刷盘再ack确认，即使ack失败也不会丢失消息<br> - 多次重试直到Producer接收，可能导致消息积压             |
+| **消费** | 确保消息可靠传递到Consumer<br>并且每条消息只处理一次 | - Broker向Consumer推送消息，未接收时自动重发，直到Consumer ack确认<br> - Consumer注意幂等性处理        |
+
+**其他针对性的优化策略**
+
+1. 异步刷盘（NSYNC_FLUSH），改为同步刷盘
+2. 避免存储介质损坏，建议采用盘[RAID10](https://baike.baidu.com/item/RAID%2010/5641657)或分布式存储
+3. 不要启动自动Ack，RawAck存在此问题
+4. 避免都市传说ActiveMQ
+
+## 20-抽pull与推push在高并发场景的选型
